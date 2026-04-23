@@ -6,13 +6,13 @@ Made with PyGame
 import pygame, sys, time, random
 
 
-# Difficulty settings
+# Difficulty settings     
 # Easy      ->  10
 # Medium    ->  25
 # Hard      ->  40
 # Harder    ->  60
 # Impossible->  120
-difficulty = 25
+difficulty = 20 
 
 # Window size
 frame_size_x = 720
@@ -48,9 +48,9 @@ fps_controller = pygame.time.Clock()
 
 # Game variables
 snake_pos = [100, 50]
-snake_body = [[100, 50], [100-10, 50], [100-(2*10), 50]]
+snake_body = [[100, 50], [95, 50], [90, 50], [85, 50], [80, 50], [75, 50], [70, 50], [65, 50], [60, 50], [55, 50], [50, 50], [45, 50], [40, 50], [35, 50], [30, 50], [25, 50], [20, 50], [15, 50]]
 
-food_pos = [random.randrange(1, (frame_size_x//10)) * 10, random.randrange(1, (frame_size_y//10)) * 10]
+food_pos = [random.randrange(1, (frame_size_x//5)) * 5, random.randrange(1, (frame_size_y//5)) * 5]
 food_spawn = True
 
 direction = 'RIGHT'
@@ -120,13 +120,13 @@ while True:
 
     # Moving the snake
     if direction == 'UP':
-        snake_pos[1] -= 10
+        snake_pos[1] -= 5
     if direction == 'DOWN':
-        snake_pos[1] += 10
+        snake_pos[1] += 5
     if direction == 'LEFT':
-        snake_pos[0] -= 10
+        snake_pos[0] -= 5
     if direction == 'RIGHT':
-        snake_pos[0] += 10
+        snake_pos[0] += 5
 
     # Snake body growing mechanism
     snake_body.insert(0, list(snake_pos))
@@ -138,7 +138,7 @@ while True:
 
     # Spawning food on the screen
     if not food_spawn:
-        food_pos = [random.randrange(1, (frame_size_x//10)) * 10, random.randrange(1, (frame_size_y//10)) * 10]
+        food_pos = [random.randrange(1, (frame_size_x//5)) * 5, random.randrange(1, (frame_size_y//5)) * 5]
     food_spawn = True
 
     # GFX
@@ -147,16 +147,19 @@ while True:
         # Snake body
         # .draw.rect(play_surface, color, xy-coordinate)
         # xy-coordinate -> .Rect(x, y, size_x, size_y)
-        pygame.draw.rect(game_window, green, pygame.Rect(pos[0], pos[1], 10, 10))
+        if direction == 'UP' or direction == 'DOWN':
+            pygame.draw.rect(game_window, green, pygame.Rect(pos[0], pos[1], 10, 5))
+        else:
+            pygame.draw.rect(game_window, green, pygame.Rect(pos[0], pos[1], 5, 10))
 
     # Snake food
-    pygame.draw.rect(game_window, white, pygame.Rect(food_pos[0], food_pos[1], 10, 10))
+    pygame.draw.rect(game_window, white, pygame.Rect(food_pos[0], food_pos[1], 5, 5))
 
     # Game Over conditions
     # Getting out of bounds
     if snake_pos[0] < 0 or snake_pos[0] > frame_size_x-10:
         game_over()
-    if snake_pos[1] < 0 or snake_pos[1] > frame_size_y-10:
+    if snake_pos[1] < 0 or snake_pos[1] > frame_size_y-5:
         game_over()
     # Touching the snake body
     for block in snake_body[1:]:
