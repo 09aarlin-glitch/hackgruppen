@@ -12,7 +12,7 @@ import pygame, sys, time, random
 # Hard      ->  40
 # Harder    ->  60
 # Impossible->  120
-difficulty = 25
+Difficulty = 60
 
 # Window size
 frame_size_x = 720
@@ -48,9 +48,9 @@ fps_controller = pygame.time.Clock()
 
 # Game variables
 snake_pos = [100, 50]
-snake_body = [[100, 50], [100-10, 50], [100-(2*10), 50]]
+snake_body = [[100, 50], [100-5, 50], [100-(2*5), 50]]
 
-food_pos = [random.randrange(1, (frame_size_x//10)) * 10, random.randrange(1, (frame_size_y//10)) * 10]
+food_pos = [random.randrange(1, (frame_size_x//5)) * 5, random.randrange(1, (frame_size_y//5)) * 5]
 food_spawn = True
 
 direction = 'RIGHT'
@@ -120,13 +120,13 @@ while True:
 
     # Moving the snake
     if direction == 'UP':
-        snake_pos[1] -= 10
+        snake_pos[1] -= 5
     if direction == 'DOWN':
-        snake_pos[1] += 10
+        snake_pos[1] += 5
     if direction == 'LEFT':
-        snake_pos[0] -= 10
+        snake_pos[0] -= 5
     if direction == 'RIGHT':
-        snake_pos[0] += 10
+        snake_pos[0] += 5
 
     # Snake body growing mechanism
     snake_body.insert(0, list(snake_pos))
@@ -147,16 +147,16 @@ while True:
         # Snake body
         # .draw.rect(play_surface, color, xy-coordinate)
         # xy-coordinate -> .Rect(x, y, size_x, size_y)
-        pygame.draw.rect(game_window, green, pygame.Rect(pos[0], pos[1], 10, 10))
+        pygame.draw.rect(game_window, green, pygame.Rect(pos[0], pos[1], 5, 5))
 
     # Snake food
-    pygame.draw.rect(game_window, white, pygame.Rect(food_pos[0], food_pos[1], 10, 10))
+    pygame.draw.rect(game_window, white, pygame.Rect(food_pos[0], food_pos[1], 5, 5))
 
     # Game Over conditions
     # Getting out of bounds
-    if snake_pos[0] < 0 or snake_pos[0] > frame_size_x-10:
+    if snake_pos[0] < 0 or snake_pos[0] > frame_size_x-5:
         game_over()
-    if snake_pos[1] < 0 or snake_pos[1] > frame_size_y-10:
+    if snake_pos[1] < 0 or snake_pos[1] > frame_size_y-5:
         game_over()
     # Touching the snake body
     for block in snake_body[1:]:
@@ -167,4 +167,4 @@ while True:
     # Refresh game screen
     pygame.display.update()
     # Refresh rate
-    fps_controller.tick(difficulty)
+    fps_controller.tick(Difficulty)
