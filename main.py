@@ -12,7 +12,7 @@ import pygame, sys, time, random
 # Hard      ->  40
 # Harder    ->  60
 # Impossible->  120
-difficulty = 20 
+difficulty = 25
 
 # Window size
 frame_size_x = 720
@@ -48,7 +48,7 @@ fps_controller = pygame.time.Clock()
 
 # Game variables
 snake_pos = [100, 50]
-snake_body = [[100, 50], [95, 50], [90, 50], [85, 50], [80, 50], [75, 50], [70, 50], [65, 50], [60, 50], [55, 50], [50, 50], [45, 50], [40, 50], [35, 50], [30, 50], [25, 50], [20, 50], [15, 50]]
+snake_body = [[100, 50], [100-10, 50], [100-(2*10), 50]]
 
 food_pos = [random.randrange(1, (frame_size_x//5)) * 5, random.randrange(1, (frame_size_y//5)) * 5]
 food_spawn = True
@@ -147,17 +147,14 @@ while True:
         # Snake body
         # .draw.rect(play_surface, color, xy-coordinate)
         # xy-coordinate -> .Rect(x, y, size_x, size_y)
-        if direction == 'UP' or direction == 'DOWN':
-            pygame.draw.rect(game_window, green, pygame.Rect(pos[0], pos[1], 10, 5))
-        else:
-            pygame.draw.rect(game_window, green, pygame.Rect(pos[0], pos[1], 5, 10))
+        pygame.draw.rect(game_window, green, pygame.Rect(pos[0], pos[1], 10, 10))
 
     # Snake food
     pygame.draw.rect(game_window, white, pygame.Rect(food_pos[0], food_pos[1], 5, 5))
 
     # Game Over conditions
     # Getting out of bounds
-    if snake_pos[0] < 0 or snake_pos[0] > frame_size_x-10:
+    if snake_pos[0] < 0 or snake_pos[0] > frame_size_x-5:
         game_over()
     if snake_pos[1] < 0 or snake_pos[1] > frame_size_y-5:
         game_over()
@@ -170,4 +167,4 @@ while True:
     # Refresh game screen
     pygame.display.update()
     # Refresh rate
-    fps_controller.tick(difficulty)
+    fps_controller.tick(Difficulty)
