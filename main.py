@@ -58,6 +58,11 @@ change_to = direction
 
 score = 0
 
+# Delta time movement system
+# Lower value = faster snake (time between moves in seconds)
+move_delay = 0.1  # 0.1s = fast, 0.5s = slow
+time_since_last_move = 0.0
+
 
 # Game Over
 def game_over():
@@ -118,25 +123,31 @@ while True:
     if change_to == 'RIGHT' and direction != 'LEFT':
         direction = 'RIGHT'
 
-    # Moving the snake
-    if direction == 'UP':
-        snake_pos[1] -= 5
-    if direction == 'DOWN':
-        snake_pos[1] += 5
-    if direction == 'LEFT':
-        snake_pos[0] -= 5
-    if direction == 'RIGHT':
-        snake_pos[0] += 5
+    # Delta time movement - only move at fixed grid intervals
+    time_since_last_move += 1 / difficulty  # Using difficulty as FPS for timing
+    
+    if time_since_last_move >= move_delay:
+        time_since_last_move = 0
+        
+        # Moving the snake
+        if direction == 'UP':
+            snake_pos[1] -= 10
+        if direction == 'DOWN':
+            snake_pos[1] += 10
+        if direction == 'LEFT':
+            snake_pos[0] -= 10
+        if direction == 'RIGHT':
+            snake_pos[0] += 10
 
-    # Snake body growing mechanism
-    snake_body.insert(0, list(snake_pos))
-    head_rect = pygame.Rect(snake_pos[0], snake_pos[1], 10, 10)
-    food_rect = pygame.Rect(food_pos[0], food_pos[1], 10, 10)
-    if head_rect.colliderect(food_rect):
-        score += 1
-        food_spawn = False
-    else:
-        snake_body.pop()
+        # Snake body growing mechanism
+        snake_body.insert(0, list(snake_pos))
+        head_rect = pygame.Rect(snake_pos[0], snake_pos[1], 10, 10)
+        food_rect = pygame.Rect(food_pos[0], food_pos[1], 10, 10)
+        if head_rect.colliderect(food_rect):
+            score += 1
+            food_spawn = False
+        else:
+            snake_body.pop()
 
     # Spawning food on the screen
     if not food_spawn:
@@ -168,5 +179,5 @@ while True:
     show_score(1, white, 'consolas', 20)
     # Refresh game screen
     pygame.display.update()
-    # Refresh rate
-    fps_controller.tick(difficulty)
+    # Run at 60 FPS for smooth rendering (movement is controlled by move_delay)
+    fps_controller.tick(60)
