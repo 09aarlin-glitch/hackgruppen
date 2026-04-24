@@ -1,0 +1,153 @@
+## Tank Convoy - Square Operation
+
+
+import pygame, sys, time, random
+
+# Inställningar för mjukare gång
+difficulty = 60 # Högre FPS för mjukare flyt
+speed = 4       # Antal pixlar vagnen rör sig per frame
+frame_size_x = 720
+frame_size_y = 480
+
+# Initiera PyGame
+pygame.init()
+pygame.display.set_caption('Snake (Himmelska fridens torg variant)')
+game_window = pygame.display.set_mode((frame_size_x, frame_size_y))
+
+# Färger
+asphalt = pygame.Color(50, 50, 50)
+tank_green = pygame.Color(34, 139, 34)
+white = pygame.Color(255, 255, 255)
+red = pygame.Color(200, 0, 0)
+yellow = pygame.Color(255, 255, 0)
+
+fps_controller = pygame.time.Clock()
+
+# Variabler
+tank_pos = [100, 60]
+# Vi lagrar fler positioner för att skapa ett mjukt "snöre" av vagnar
+tank_body = [list(tank_pos) for _ in range(20)] 
+target_pos = [random.randrange(20, frame_size_x-20), random.randrange(20, frame_size_y-20)]
+direction = 'RIGHT'
+change_to = direction
+score = 0
+
+def start_screen():
+    game_window.fill(asphalt)
+    font_large = pygame.font.SysFont('impact', 40)
+    font_small = pygame.font.SysFont('consolas', 20)
+    
+    title_surf = font_large.render('Snake (Himmelska fridens torg variant)', True, white)
+    instr_surf = font_small.render('Tryck på valfri tangent för att börja konvojen', True, yellow)
+    
+    title_rect = title_surf.get_rect(center=(frame_size_x/2, frame_size_y/2 - 30))
+    instr_rect = instr_surf.get_rect(center=(frame_size_x/2, frame_size_y/2 + 30))
+    
+    game_window.blit(title_surf, title_rect)
+    game_window.blit(instr_surf, instr_rect)
+    pygame.display.flip()
+    
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                waiting = False
+
+def game_over():
+    my_font = pygame.font.SysFont('impact', 70)
+    msg = my_font.render('MISSION FAILED', True, red)
+    game_window.fill(asphalt)
+    game_window.blit(msg, msg.get_rect(center=(frame_size_x/2, frame_size_y/2)))
+    pygame.display.flip()
+    time.sleep(2)
+    main() # Starta om spelet
+
+def show_score():
+    score_font = pygame.font.SysFont('consolas', 20)
+    score_surf = score_font.render(f'Vehicles: {3 + score}', True, white)
+    game_window.blit(score_surf, (20, 20))
+
+def main():
+    global tank_pos, tank_body, direction, change_to, target_pos, score
+    
+    # Återställ variabler vid omstart
+    tank_pos = [100, 60]
+    tank_body = [list(tank_pos) for _ in range(30)] # 30 punkter motsvarar ca 3 vagnar
+    direction = 'RIGHT'
+    change_to = direction
+    score = 0
+    
+    start_screen()
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if (event.key == pygame.K_UP or event.key == ord('w')) and direction != 'DOWN':
+                    change_to = 'UP'
+                if (event.key == pygame.K_DOWN or event.key == ord('s')) and direction != 'UP':
+                    change_to = 'DOWN'
+                if (event.key == pygame.K_LEFT or event.key == ord('a')) and direction != 'RIGHT':
+                    change_to = 'LEFT'
+                if (event.key == pygame.K_RIGHT or event.key == ord('d')) and direction != 'LEFT':
+                    change_to = 'RIGHT'
+
+        direction = change_to
+
+        # Mjuk rörelse
+        if direction == 'UP': tank_pos[1] -= speed
+        if direction == 'DOWN': tank_pos[1] += speed
+        if direction == 'LEFT': tank_pos[0] -= speed
+        if direction == 'RIGHT': tank_pos[0] += speed
+
+        # Uppdatera kroppen (vi sparar historiken av positioner)
+        tank_body.insert(0, list(tank_pos))
+        
+        # Kolla om vi träffar målet (med lite marginal för mjukhet)
+        if abs(tank_pos[0] - target_pos[0]) < 20 and abs(tank_pos[1] - target_pos[1]) < 20:
+            score += 1
+            target_pos = [random.randrange(20, frame_size_x-20), random.randrange(20, frame_size_y-20)]
+            # Vi låter kroppen bli längre genom att inte poppa sista segmenten på några frames
+        else:
+            tank_body.pop()
+
+        # Rita
+        game_window.fill(asphalt)
+        
+        # Rita målet
+        pygame.draw.rect(game_window, yellow, (target_pos[0], target_pos[1], 15, 15))
+
+        # Rita konvojen (vi ritar bara var 10:e sparade position för att få avstånd mellan vagnarna)
+        for i in range(0, len(tank_body), 10):
+            pos = tank_body[i]
+            pygame.draw.rect(game_window, tank_green, (pos[0], pos[1], 18, 18))
+            # Detalj på vagnen
+            pygame.draw.rect(game_window, asphalt, (pos[0]+6, pos[1]+6, 6, 6))
+            
+            # Eldrör på första vagnen
+            if i == 0:
+                if direction == 'UP': pygame.draw.rect(game_window, tank_green, (pos[0]+7, pos[1]-8, 4, 10))
+                if direction == 'DOWN': pygame.draw.rect(game_window, tank_green, (pos[0]+7, pos[1]+16, 4, 10))
+                if direction == 'LEFT': pygame.draw.rect(game_window, tank_green, (pos[0]-8, pos[1]+7, 10, 4))
+                if direction == 'RIGHT': pygame.draw.rect(game_window, tank_green, (pos[0]+16, pos[1]+7, 10, 4))
+
+        # Kollision väggar
+        if tank_pos[0] < 0 or tank_pos[0] > frame_size_x-20 or tank_pos[1] < 0 or tank_pos[1] > frame_size_y-20:
+            game_over()
+
+        # Kollision med sig själv (hoppa över de första segmenten nära huvudet)
+        for block in tank_body[30:]:
+            if abs(tank_pos[0] - block[0]) < 5 and abs(tank_pos[1] - block[1]) < 5:
+                game_over()
+
+        show_score()
+        pygame.display.update()
+        fps_controller.tick(difficulty)
+
+if __name__ == '__main__':
+    main()
