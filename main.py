@@ -120,13 +120,13 @@ while True:
 
     # Moving the snake
     if direction == 'UP':
-        snake_pos[1] -= 5
+        snake_pos[1] -= 10
     if direction == 'DOWN':
-        snake_pos[1] += 5
+        snake_pos[1] += 10
     if direction == 'LEFT':
-        snake_pos[0] -= 5
+        snake_pos[0] -= 10
     if direction == 'RIGHT':
-        snake_pos[0] += 5
+        snake_pos[0] += 10
 
     # Snake body growing mechanism
     snake_body.insert(0, list(snake_pos))
