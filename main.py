@@ -50,7 +50,7 @@ fps_controller = pygame.time.Clock()
 snake_pos = [100, 50]
 snake_body = [[100, 50], [100-10, 50], [100-(2*10), 50]]
 
-food_pos = [random.randrange(1, (frame_size_x//5)) * 5, random.randrange(1, (frame_size_y//5)) * 5]
+food_pos = [random.randrange(1, (frame_size_x//10)) * 10, random.randrange(1, (frame_size_y//10)) * 10]
 food_spawn = True
 
 direction = 'RIGHT'
@@ -130,7 +130,9 @@ while True:
 
     # Snake body growing mechanism
     snake_body.insert(0, list(snake_pos))
-    if snake_pos[0] == food_pos[0] and snake_pos[1] == food_pos[1]:
+    head_rect = pygame.Rect(snake_pos[0], snake_pos[1], 10, 10)
+    food_rect = pygame.Rect(food_pos[0], food_pos[1], 10, 10)
+    if head_rect.colliderect(food_rect):
         score += 1
         food_spawn = False
     else:
@@ -138,7 +140,7 @@ while True:
 
     # Spawning food on the screen
     if not food_spawn:
-        food_pos = [random.randrange(1, (frame_size_x//5)) * 5, random.randrange(1, (frame_size_y//5)) * 5]
+        food_pos = [random.randrange(1, (frame_size_x//10)) * 10, random.randrange(1, (frame_size_y//10)) * 10]
     food_spawn = True
 
     # GFX
@@ -149,14 +151,14 @@ while True:
         # xy-coordinate -> .Rect(x, y, size_x, size_y)
         pygame.draw.rect(game_window, green, pygame.Rect(pos[0], pos[1], 10, 10))
 
-    # Snake food
-    pygame.draw.rect(game_window, white, pygame.Rect(food_pos[0], food_pos[1], 5, 5))
+    # Snake food - made bigger (10x10)
+    pygame.draw.rect(game_window, white, pygame.Rect(food_pos[0], food_pos[1], 10, 10))
 
     # Game Over conditions
     # Getting out of bounds
-    if snake_pos[0] < 0 or snake_pos[0] > frame_size_x-5:
+    if snake_pos[0] < 0 or snake_pos[0] + 10 > frame_size_x:
         game_over()
-    if snake_pos[1] < 0 or snake_pos[1] > frame_size_y-5:
+    if snake_pos[1] < 0 or snake_pos[1] + 10 > frame_size_y:
         game_over()
     # Touching the snake body
     for block in snake_body[1:]:
