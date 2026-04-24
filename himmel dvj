@@ -31,6 +31,7 @@ target_pos = [random.randrange(20, frame_size_x-20), random.randrange(20, frame_
 direction = 'RIGHT'
 change_to = direction
 score = 0
+growth_pending = 0  # New variable to handle growth
 
 def start_screen():
     game_window.fill(asphalt)
@@ -71,7 +72,7 @@ def show_score():
     game_window.blit(score_surf, (20, 20))
 
 def main():
-    global tank_pos, tank_body, direction, change_to, target_pos, score
+    global tank_pos, tank_body, direction, change_to, target_pos, score, growth_pending
     
     # Återställ variabler vid omstart
     tank_pos = [100, 60]
@@ -79,6 +80,7 @@ def main():
     direction = 'RIGHT'
     change_to = direction
     score = 0
+    growth_pending = 0
     
     start_screen()
 
@@ -112,7 +114,11 @@ def main():
         if abs(tank_pos[0] - target_pos[0]) < 20 and abs(tank_pos[1] - target_pos[1]) < 20:
             score += 1
             target_pos = [random.randrange(20, frame_size_x-20), random.randrange(20, frame_size_y-20)]
-            # Vi låter kroppen bli längre genom att inte poppa sista segmenten på några frames
+            growth_pending += 10  # Add 10 to growth_pending to add one tank
+        
+        # Handle growth: only pop if no pending growth
+        if growth_pending > 0:
+            growth_pending -= 1
         else:
             tank_body.pop()
 
