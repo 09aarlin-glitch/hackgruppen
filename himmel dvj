@@ -6,6 +6,7 @@ import pygame, sys, time, random
 # Inställningar för mjukare gång
 difficulty = 60 # Högre FPS för mjukare flyt
 speed = 4       # Antal pixlar vagnen rör sig per frame
+bullet_speed = 8  # Bullet speed, faster than tank
 frame_size_x = 720
 frame_size_y = 480
 
@@ -17,6 +18,7 @@ game_window = pygame.display.set_mode((frame_size_x, frame_size_y))
 # Färger
 asphalt = pygame.Color(50, 50, 50)
 tank_green = pygame.Color(34, 139, 34)
+tank_dark_green = pygame.Color(20, 100, 20)
 white = pygame.Color(255, 255, 255)
 red = pygame.Color(200, 0, 0)
 yellow = pygame.Color(255, 255, 0)
@@ -32,7 +34,9 @@ direction = 'RIGHT'
 change_to = direction
 score = 0
 growth_pending = 0  # New variable to handle growth
-
+shot_timer = 0
+bullets = []
+    
 def start_screen():
     game_window.fill(asphalt)
     font_large = pygame.font.SysFont('impact', 40)
@@ -81,6 +85,8 @@ def main():
     change_to = direction
     score = 0
     growth_pending = 0
+    shot_timer = 0
+    bullets = []
     
     start_screen()
 
@@ -122,25 +128,63 @@ def main():
         else:
             tank_body.pop()
 
+        # Handle shooting timer and bullets
+        shot_timer += 2
+        if shot_timer % 120 == 0:
+            pos = tank_body[0]
+            if direction == 'UP':
+                bullets.append({'x': pos[0] + 9, 'y': pos[1] - 5, 'dir': 'UP'})
+            elif direction == 'DOWN':
+                bullets.append({'x': pos[0] + 9, 'y': pos[1] + 23, 'dir': 'DOWN'})
+            elif direction == 'LEFT':
+                bullets.append({'x': pos[0] - 5, 'y': pos[1] + 9, 'dir': 'LEFT'})
+            elif direction == 'RIGHT':
+                bullets.append({'x': pos[0] + 23, 'y': pos[1] + 9, 'dir': 'RIGHT'})
+
+        # Update bullets
+        for b in bullets[:]:
+            if b['dir'] == 'UP': b['y'] -= bullet_speed
+            elif b['dir'] == 'DOWN': b['y'] += bullet_speed
+            elif b['dir'] == 'LEFT': b['x'] -= bullet_speed
+            elif b['dir'] == 'RIGHT': b['x'] += bullet_speed
+            if b['x'] < 0 or b['x'] > frame_size_x or b['y'] < 0 or b['y'] > frame_size_y:
+                bullets.remove(b)
+
         # Rita
         game_window.fill(asphalt)
         
-        # Rita målet
-        pygame.draw.rect(game_window, yellow, (target_pos[0], target_pos[1], 15, 15))
+        # Rita målet (humans)
+        # Head
+        pygame.draw.circle(game_window, white, (target_pos[0] + 7, target_pos[1] + 5), 5)
+        # Body
+        pygame.draw.line(game_window, white, (target_pos[0] + 7, target_pos[1] + 10), (target_pos[0] + 7, target_pos[1] + 20), 2)
+        # Arms
+        pygame.draw.line(game_window, white, (target_pos[0] + 7, target_pos[1] + 12), (target_pos[0] + 2, target_pos[1] + 18), 2)
+        pygame.draw.line(game_window, white, (target_pos[0] + 7, target_pos[1] + 12), (target_pos[0] + 12, target_pos[1] + 18), 2)
+        # Legs
+        pygame.draw.line(game_window, white, (target_pos[0] + 7, target_pos[1] + 15), (target_pos[0] + 2, target_pos[1] + 25), 2)
+        pygame.draw.line(game_window, white, (target_pos[0] + 7, target_pos[1] + 15), (target_pos[0] + 12, target_pos[1] + 25), 2)
 
         # Rita konvojen (vi ritar bara var 10:e sparade position för att få avstånd mellan vagnarna)
         for i in range(0, len(tank_body), 10):
             pos = tank_body[i]
-            pygame.draw.rect(game_window, tank_green, (pos[0], pos[1], 18, 18))
-            # Detalj på vagnen
-            pygame.draw.rect(game_window, asphalt, (pos[0]+6, pos[1]+6, 6, 6))
+            # Hull
+            pygame.draw.rect(game_window, tank_dark_green, (pos[0], pos[1], 18, 18))
+            # Tracks
+            pygame.draw.line(game_window, asphalt, (pos[0], pos[1] + 2), (pos[0], pos[1] + 16), 2)
+            pygame.draw.line(game_window, asphalt, (pos[0] + 17, pos[1] + 2), (pos[0] + 17, pos[1] + 16), 2)
+            # Turret
+            pygame.draw.circle(game_window, tank_green, (pos[0] + 9, pos[1] + 9), 6)
             
-            # Eldrör på första vagnen
-            if i == 0:
-                if direction == 'UP': pygame.draw.rect(game_window, tank_green, (pos[0]+7, pos[1]-8, 4, 10))
-                if direction == 'DOWN': pygame.draw.rect(game_window, tank_green, (pos[0]+7, pos[1]+16, 4, 10))
-                if direction == 'LEFT': pygame.draw.rect(game_window, tank_green, (pos[0]-8, pos[1]+7, 10, 4))
-                if direction == 'RIGHT': pygame.draw.rect(game_window, tank_green, (pos[0]+16, pos[1]+7, 10, 4))
+            # Gun barrel for all tanks
+            if direction == 'UP': pygame.draw.line(game_window, tank_green, (pos[0] + 9, pos[1] + 9), (pos[0] + 9, pos[1] - 5), 3)
+            if direction == 'DOWN': pygame.draw.line(game_window, tank_green, (pos[0] + 9, pos[1] + 9), (pos[0] + 9, pos[1] + 23), 3)
+            if direction == 'LEFT': pygame.draw.line(game_window, tank_green, (pos[0] + 9, pos[1] + 9), (pos[0] - 5, pos[1] + 9), 3)
+            if direction == 'RIGHT': pygame.draw.line(game_window, tank_green, (pos[0] + 9, pos[1] + 9), (pos[0] + 23, pos[1] + 9), 3)
+
+        # Rita bullets
+        for b in bullets:
+            pygame.draw.circle(game_window, red, (int(b['x']), int(b['y'])), 2)
 
         # Kollision väggar
         if tank_pos[0] < 0 or tank_pos[0] > frame_size_x-20 or tank_pos[1] < 0 or tank_pos[1] > frame_size_y-20:

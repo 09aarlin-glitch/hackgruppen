@@ -1,0 +1,288 @@
+import pygame
+import sys
+import os
+
+pygame.init()
+WIDTH, HEIGHT = 1200, 800
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+clock = pygame.time.Clock()
+font = pygame.font.SysFont("arial", 22)
+large_font = pygame.font.SysFont("arial", 36)
+
+WHITE = (245, 245, 245)
+BLACK = (20, 20, 20)
+GRAY = (35, 35, 35)
+BUTTON_BG = (70, 70, 70)
+BUTTON_HOVER = (115, 115, 125)
+BUTTON_DISABLED = (55, 55, 55)
+STATUS_COLOR = (220, 220, 220)
+
+scenes = {
+    "intro": {
+        "text": "The final bell rang hours ago. Fluorescent lights cast long shadows across empty desks, "
+                "and the hallway beyond is quiet except for a distant ventilation hum. "
+                "The main exit is locked, and a patrolling guard could be nearby.",
+        "choices": [
+            {"text": "Slip through the classroom door into the hall", "next": "hallway"},
+            {"text": "Search the desk for tools", "next": "desk"},
+            {"text": "Listen at the door and wait", "next": "eavesdrop"}
+        ]
+    },
+    "desk": {
+        "text": "Under a loose piece of laminate you find a compact flashlight, a folded map of the building, "
+                "and an old staff ID card. The darkness will now be easier to manage.",
+        "effects": {"add_item": ["flashlight", "map"], "time": -2},
+        "choices": [
+            {"text": "Head into the hallway", "next": "hallway"}
+        ]
+    },
+    "eavesdrop": {
+        "text": "Footsteps echo softly once, then fade. The corridor looks clear for now, but the delay costs you valuable time.",
+        "effects": {"suspicion": -10, "time": -5},
+        "choices": [
+            {"text": "Move into the hallway", "next": "hallway"}
+        ]
+    },
+    "hallway": {
+        "text": "Lockers line the passage. The main office glows faintly with a security light, while a service corridor and staff lounge lie to the right.",
+        "choices": [
+            {"text": "Take the service corridor toward the rear gate", "next": "service_corridor"},
+            {"text": "Try to get into the main office", "next": "main_office"},
+            {"text": "Sneak into the staff lounge", "next": "staff_lounge"},
+            {"text": "Climb the stairwell to the roof", "next": "stairwell"}
+        ]
+    },
+    "service_corridor": {
+        "text": "The service corridor is narrow and dim. Pipes run along the ceiling and the smell of cleaning supplies hangs heavy.",
+        "effects": {"time": -8, "suspicion": 5},
+        "choices": [
+            {"text": "Search the storage room for something useful", "next": "supply_room",
+             "requires": "flashlight", "lock_text": "It's too dark unless you have a flashlight."},
+            {"text": "Crawl toward the delivery door", "next": "delivery_door"},
+            {"text": "Return to the hallway", "next": "hallway"}
+        ]
+    },
+    "supply_room": {
+        "text": "Behind stacks of janitorial supplies you find a coiled rope and a roll of strong duct tape. This could help on the roof or in the alley.",
+        "effects": {"add_item": "rope", "time": -3},
+        "choices": [
+            {"text": "Go back to the hallway", "next": "hallway"}
+        ]
+    },
+    "staff_lounge": {
+        "text": "The lounge is quiet. A janitor's jacket hangs on a hook and a half-finished coffee steams on the table.",
+        "effects": {"add_item": "janitor_uniform", "suspicion": -5, "time": -4},
+        "choices": [
+            {"text": "Take the uniform and return to the hallway", "next": "hallway"}
+        ]
+    },
+    "main_office": {
+        "text": "The main office door is locked with a keypad. A guard moves slowly inside, visible through the frosted glass.",
+        "choices": [
+            {"text": "Use the janitor uniform and bluff your way in", "next": "guard",
+             "requires": "janitor_uniform", "lock_text": "You need a uniform to attempt that."},
+            {"text": "Search the reception desk for a keycard", "next": "office_search"},
+            {"text": "Leave and return to the hallway", "next": "hallway"}
+        ]
+    },
+    "office_search": {
+        "text": "You slip in and search the desk. A keycard is taped under the phone. Taking it is risky, but it may open a back exit.",
+        "effects": {"add_item": "keycard", "suspicion": 10, "time": -5},
+        "choices": [
+            {"text": "Use the keycard on the office door", "next": "office_unlocked"},
+            {"text": "Leave and try a different path", "next": "hallway"}
+        ]
+    },
+    "office_unlocked": {
+        "text": "The door clicks open. The guard is distracted, and you slip through into the dim office corridor toward the rear gate.",
+        "effects": {"time": -3},
+        "choices": [
+            {"text": "Move through the corridor toward the rear gate", "next": "outside"},
+            {"text": "Return to the hallway", "next": "hallway"}
+        ]
+    },
+    "outside": {
+        "text": "A loading dock and back alley lie beyond the office. The alley is narrow, but it leads away from the school boundary.",
+        "choices": [
+            {"text": "Slip into the alley and head for the street", "next": "escape"},
+            {"text": "Wait and watch for patrols", "next": "caught"}
+        ]
+    },
+    "delivery_door": {
+        "text": "The delivery door opens onto a shadowed alley. This is the shortest route outside, but the risk of being spotted is high.",
+        "effects": {"time": -10, "suspicion": 15},
+        "choices": [
+            {"text": "Push through and escape", "next": "escape"},
+            {"text": "Slip back inside quietly", "next": "hallway"}
+        ]
+    },
+    "stairwell": {
+        "text": "The stairwell is coated in dust. The roof hatch is old and the metal ladder creaks beneath your weight.",
+        "effects": {"time": -6},
+        "choices": [
+            {"text": "Open the hatch and climb to the roof", "next": "roof"},
+            {"text": "Return to the hallway", "next": "hallway"}
+        ]
+    },
+    "roof": {
+        "text": "The roof is cold and exposed. The courtyard below is visible, and the low fence offers one last chance.",
+        "choices": [
+            {"text": "Lower yourself with the rope", "next": "courtyard",
+             "requires": "rope", "lock_text": "You need a rope to climb down safely."},
+            {"text": "Climb back down and choose another path", "next": "hallway"}
+        ]
+    },
+    "courtyard": {
+        "text": "You creep across the courtyard in the moonlight. One final fence separates you from the street.",
+        "choices": [
+            {"text": "Dash to the fence and climb out", "next": "escape"}
+        ]
+    },
+    "caught": {
+        "text": "A guard's flashlight finds you. Your suspicion or delay finally caught up with you.",
+        "choices": [
+            {"text": "Try again", "next": "intro"}
+        ]
+    },
+    "escape": {
+        "text": "You slip past the last barrier and breathe fresh air. The school is behind you, and the street lights promise a safe path away.",
+        "choices": [
+            {"text": "Play again", "next": "intro"}
+        ]
+    }
+}
+
+state = {"items": set(), "suspicion": 0, "time": 140, "visited": set()}
+current_scene = "intro"
+
+def reset_state():
+    state["items"].clear()
+    state["suspicion"] = 0
+    state["time"] = 140
+    state["visited"].clear()
+
+def apply_effects(scene_key):
+    if scene_key in state["visited"]:
+        return
+    state["visited"].add(scene_key)
+    effects = scenes[scene_key].get("effects", {})
+    if effects.get("add_item"):
+        add_item = effects["add_item"]
+        if isinstance(add_item, (list, tuple, set)):
+            state["items"].update(add_item)
+        else:
+            state["items"].add(add_item)
+    if effects.get("remove_item"):
+        remove_item = effects["remove_item"]
+        if isinstance(remove_item, (list, tuple, set)):
+            for item in remove_item:
+                state["items"].discard(item)
+        else:
+            state["items"].discard(remove_item)
+    state["suspicion"] = max(0, state["suspicion"] + effects.get("suspicion", 0))
+    state["time"] = max(0, state["time"] + effects.get("time", 0))
+
+def set_scene(scene_key):
+    global current_scene
+    if scene_key == "intro":
+        reset_state()
+    current_scene = scene_key
+    apply_effects(scene_key)
+    update_game_state()
+
+def can_choose(choice):
+    required = choice.get("requires")
+    if not required:
+        return True
+    if isinstance(required, (list, tuple, set)):
+        return all(item in state["items"] for item in required)
+    return required in state["items"]
+
+def update_game_state():
+    global current_scene
+    if current_scene not in ("caught", "escape"):
+        if state["time"] <= 0 or state["suspicion"] >= 100:
+            current_scene = "caught"
+
+def draw_text_block(text, rect, font, color):
+    words = text.split(" ")
+    lines = []
+    line = ""
+    for word in words:
+        test = f"{line} {word}".strip()
+        if font.size(test)[0] > rect.width - 20:
+            lines.append(line)
+            line = word
+        else:
+            line = test
+    if line:
+        lines.append(line)
+    y = rect.top
+    for line in lines:
+        rendered = font.render(line, True, color)
+        screen.blit(rendered, (rect.left + 10, y))
+        y += rendered.get_height() + 8
+
+def draw_scene():
+    screen.fill(BLACK)
+
+    overlay = pygame.Surface((WIDTH - 100, HEIGHT - 170))
+    overlay.set_alpha(230)
+    overlay.fill(GRAY)
+    screen.blit(overlay, (50, 50))
+
+    title = large_font.render("Escape the School", True, WHITE)
+    screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 65))
+
+    text_rect = pygame.Rect(70, 130, WIDTH - 140, 200)
+    draw_text_block(scenes[current_scene]["text"], text_rect, font, WHITE)
+
+    exit_button = pygame.Rect(WIDTH - 170, 60, 140, 42)
+    mx, my = pygame.mouse.get_pos()
+    exit_color = BUTTON_HOVER if exit_button.collidepoint(mx, my) else BUTTON_BG
+    pygame.draw.rect(screen, exit_color, exit_button, border_radius=12)
+    exit_text = font.render("Close Game", True, WHITE)
+    screen.blit(exit_text, (exit_button.centerx - exit_text.get_width() // 2,
+                            exit_button.centery - exit_text.get_height() // 2))
+
+    buttons = [(exit_button, {"exit": True})]
+    for idx, choice in enumerate(scenes[current_scene]["choices"]):
+        button_rect = pygame.Rect(70, 380 + idx * 70, WIDTH - 140, 52)
+        mx, my = pygame.mouse.get_pos()
+        available = can_choose(choice)
+        hovered = button_rect.collidepoint(mx, my)
+        color = BUTTON_HOVER if hovered and available else BUTTON_BG
+        if not available:
+            color = BUTTON_DISABLED
+        pygame.draw.rect(screen, color, button_rect, border_radius=12)
+        text_surf = font.render(choice["text"], True, WHITE)
+        screen.blit(text_surf, (button_rect.left + 16, button_rect.centery - text_surf.get_height() // 2))
+        if not available and choice.get("lock_text"):
+            lock_text = font.render(choice["lock_text"], True, (220, 140, 120))
+            screen.blit(lock_text, (button_rect.left + 16, button_rect.bottom + 4))
+        buttons.append((button_rect, choice))
+    return buttons
+
+set_scene("intro")
+
+
+running = True
+while running:
+    clock.tick(60)
+    update_game_state()
+    buttons = draw_scene()
+    pygame.display.flip()
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for rect, choice in buttons:
+                if rect.collidepoint(event.pos) and can_choose(choice):
+                    if choice.get("exit"):
+                        running = False
+                    else:
+                        set_scene(choice["next"])
+                    break
+
+pygame.quit()
+sys.exit()
