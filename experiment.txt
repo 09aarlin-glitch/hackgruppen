@@ -1,0 +1,279 @@
+from ursina import *
+from ursina.prefabs.first_person_controller import FirstPersonController
+import random
+import os
+
+app = Ursina()
+
+robot_texture = None
+if os.path.exists('hackaton.png'):
+    robot_texture = load_texture('hackaton.png')
+elif os.path.exists('terminator.png'):
+    robot_texture = load_texture('terminator.png')
+
+# --- Dust II Theme Colors ---
+dust_sand = color.tint(color.yellow, -.2) # Sandy Tan
+dust_wall = color.rgb(210, 180, 140)      # Dustier Tan
+
+# --- Environment ---
+Sky(texture='sky_default')
+
+# The Floor (Dusty Ground) - now tiled for chunking
+ground_chunks = {}  # Dictionary to hold ground chunks
+wall_chunks = {}    # Dictionary to hold wall chunks for each chunk
+crate_chunks = {}   # Dictionary to hold crate chunks
+
+chunk_size = 50  # Size of each chunk
+loaded_chunks = set()  # Set of loaded chunk coordinates (x, z)
+
+def generate_ground_chunk(cx, cz):
+    """Generate a ground chunk at chunk coordinates (cx, cz)"""
+    x = cx * chunk_size
+    z = cz * chunk_size
+    ground = Entity(model='quad', scale=chunk_size, texture='white_cube', 
+                    texture_scale=(chunk_size, chunk_size), rotation_x=90, 
+                    color=dust_sand, collider='box', position=(x, 0, z))
+    return ground
+
+def generate_walls_chunk(cx, cz):
+    """Generate walls for a chunk at (cx, cz)"""
+    x = cx * chunk_size
+    z = cz * chunk_size
+    walls = [
+        # Long A High Wall
+        Entity(model='cube', scale=(2, 8, 40), position=(x + 15, 4, z + 0), color=dust_wall, collider='box', texture='white_cube'),
+        # The "Pit" area wall
+        Entity(model='cube', scale=(20, 8, 2), position=(x + 5, 4, z - 20), color=dust_wall, collider='box', texture='white_cube'),
+        # Tunnels Entrance
+        Entity(model='cube', scale=(10, 10, 10), position=(x - 15, 5, z + 10), color=dust_wall, collider='box', texture='white_cube'),
+        # Bombsite A Platform
+        Entity(model='cube', scale=(10, 1.5, 10), position=(x + 0, 0.75, z + 0), color=color.gray, collider='box', texture='white_cube'),
+    ]
+    return walls
+
+def generate_crates_chunk(cx, cz):
+    """Generate crates for a chunk at (cx, cz)"""
+    x = cx * chunk_size
+    z = cz * chunk_size
+    crates = []
+    for p in [(2,1,2), (2,1,4), (-5,1,-8), (12,1,5)]:
+        crate = Entity(model='cube', scale=2, position=(x + p[0], p[1], z + p[2]), texture='white_cube', 
+                       color=color.brown, collider='box')
+        crates.append(crate)
+    return crates
+
+def load_chunk(cx, cz):
+    """Load a chunk at (cx, cz)"""
+    if (cx, cz) in loaded_chunks:
+        return
+    ground_chunks[(cx, cz)] = generate_ground_chunk(cx, cz)
+    wall_chunks[(cx, cz)] = generate_walls_chunk(cx, cz)
+    crate_chunks[(cx, cz)] = generate_crates_chunk(cx, cz)
+    loaded_chunks.add((cx, cz))
+
+def unload_chunk(cx, cz):
+    """Unload a chunk at (cx, cz)"""
+    if (cx, cz) not in loaded_chunks:
+        return
+    if (cx, cz) in ground_chunks:
+        destroy(ground_chunks[(cx, cz)])
+        del ground_chunks[(cx, cz)]
+    if (cx, cz) in wall_chunks:
+        for wall in wall_chunks[(cx, cz)]:
+            destroy(wall)
+        del wall_chunks[(cx, cz)]
+    if (cx, cz) in crate_chunks:
+        for crate in crate_chunks[(cx, cz)]:
+            destroy(crate)
+        del crate_chunks[(cx, cz)]
+    loaded_chunks.remove((cx, cz))
+
+# Initially load the center chunk (0,0)
+load_chunk(0, 0)
+
+# --- Lighting (The Secret Sauce) ---
+# This gives the scene that bright, harsh Middle-Eastern sun look
+sun = DirectionalLight()
+sun.look_at(Vec3(1, -1, -1))
+
+# --- Player & Weapon ---
+player = FirstPersonController()
+
+# --- PLACE PLAYER SETTINGS HERE ---
+player.speed = 12                  # Snappy movement
+player.jump_height = 3             # Classic jump height
+player.mouse_sensitivity = Vec2(40, 40)
+
+# Gun model (A simple colored cube to represent the weapon)
+# --- Fixed Gun Position ---
+gun = Entity(
+    parent=camera.ui,    # Attached to UI layer
+    model='cube',
+    color=color.dark_gray,
+    scale=(0.3, 0.2, 1),
+    # position=(x, y, z) 
+    # x=0.5 (right), y=-0.35 (down), z=0.5 (pushed away from camera)
+    position=(0.5, -0.35, 0.5), 
+    rotation=(10, -10, 0)
+)
+
+# --- PLACE CROSSHAIR HERE ---
+# A simple green dot/cross in the exact center of the screen
+crosshair = Entity(
+    parent=camera.ui, 
+    model='quad', 
+    color=color.green, 
+    scale=0.008          # Small and precise
+)
+
+# --- Fixed Muzzle Flash Position ---
+muzzle_flash = Entity(
+    parent=camera.ui,
+    model='quad',
+    texture='flare',
+    color=color.yellow,
+    scale=0,
+    # This must be slightly FURTHER than the gun's Z
+    position=(0.55, -0.2, 0.6), 
+    add_to_scene_entities=False
+)
+
+# --- The Bot Class ---
+class Enemy(Entity):
+    def __init__(self, position=(0,0,0)):
+        texture_to_use = robot_texture or 'white_cube'
+        super().__init__(
+            parent=scene,
+            position=position,
+            model='cube',
+            texture=texture_to_use,
+            color=color.rgb(180, 180, 180),
+            collider='box',
+            scale=(1, 2, 0.5)
+        )
+        self.health = 1
+        self.speed = 5  # Chasing speed
+
+        self.pelvis = Entity(parent=self, model='cube', scale=(0.5, 0.25, 0.3),
+                             position=(0, -0.25, 0), texture=texture_to_use,
+                             color=color.rgb(160, 160, 160))
+        self.torso = Entity(parent=self, model='cube', scale=(0.5, 0.9, 0.25),
+                            position=(0, 0.35, 0), texture=texture_to_use,
+                            color=color.rgb(170, 170, 170))
+        self.head = Entity(parent=self, model='cube', scale=(0.35, 0.35, 0.35),
+                           position=(0, 1.05, 0), texture=texture_to_use,
+                           color=color.rgb(150, 150, 150))
+        self.left_arm = Entity(parent=self, model='cube', scale=(0.15, 0.8, 0.15),
+                               position=(0.45, 0.35, 0), texture=texture_to_use,
+                               color=color.rgb(160, 160, 160))
+        self.right_arm = Entity(parent=self, model='cube', scale=(0.15, 0.8, 0.15),
+                                position=(-0.45, 0.35, 0), texture=texture_to_use,
+                                color=color.rgb(160, 160, 160))
+        self.left_leg = Entity(parent=self, model='cube', scale=(0.18, 0.9, 0.18),
+                               position=(0.18, -0.95, 0), texture=texture_to_use,
+                               color=color.rgb(140, 140, 140))
+        self.right_leg = Entity(parent=self, model='cube', scale=(0.18, 0.9, 0.18),
+                                position=(-0.18, -0.95, 0), texture=texture_to_use,
+                                color=color.rgb(140, 140, 140))
+
+        self.eye_left = Entity(parent=self.head, model='quad', scale=(0.1, 0.05),
+                               position=(0.12, 0.08, 0.19), color=color.red)
+        self.eye_right = Entity(parent=self.head, model='quad', scale=(0.1, 0.05),
+                                position=(-0.12, 0.08, 0.19), color=color.red)
+
+    def update(self):
+        # Chase the player if within range
+        dist = distance(self, player)
+        if dist < 50:  # Chase if closer than 50 units
+            direction = (player.position - self.position).normalized()
+            self.position += direction * self.speed * time.dt
+            self.look_at(player)  # Face the player
+
+    def hit(self):
+        self.health -= 1
+        if self.health <= 0:
+            # Add a little "death" effect
+            self.color = color.black
+            self.animate_scale(0, duration=0.1) # Shrink into nothing
+            invoke(spawn_new_enemy, delay=0.1)  # Spawn a new enemy after destruction
+            destroy(self, delay=0.1)
+
+def spawn_new_enemy():
+    """Spawn a new enemy in the player's current chunk at a random position"""
+    cx = int(player.x // chunk_size)
+    cz = int(player.z // chunk_size)
+    # Random position within the chunk
+    x = cx * chunk_size + random.uniform(-chunk_size/2, chunk_size/2)
+    z = cz * chunk_size + random.uniform(-chunk_size/2, chunk_size/2)
+    y = 2  # Above ground
+    Enemy(position=(x, y, z))
+
+# --- Spawning the Bots ---
+# Initial enemies
+Enemy(position=(0, 2, 0))      # On the platform
+Enemy(position=(-15, 1, 10))   # Tunnel entrance
+Enemy(position=(12, 1, -10))   # Long A corner
+# ...existing code...
+
+def shoot():
+    # 1. Muzzle Flash
+    muzzle_flash.scale = 0.2
+    invoke(setattr, muzzle_flash, 'scale', 0, delay=0.05)
+    
+    # 2. Recoil
+    gun.animate_position((0.5, -0.25, -0.1), duration=0.05)
+    gun.animate_position((0.5, -0.35, 0), duration=0.1, delay=0.05)
+    
+    # 3. Hit Detection (The important part!)
+    if mouse.hovered_entity:
+        target = mouse.hovered_entity
+        
+        # If the thing we hit has a 'hit' method (like our Enemy class)
+        if hasattr(target, 'hit'):
+            target.hit()
+        else:
+            # If we hit a wall instead, just make a bullet hole
+            bullet_hole = Entity(
+                model='sphere', 
+                color=color.orange, 
+                scale=0.15, 
+                position=mouse.world_point + mouse.normal * 0.01
+            )
+            destroy(bullet_hole, delay=1)
+
+def input(key):
+    if key == 'left mouse down':
+        shoot()
+    
+    if key == 'escape':
+        quit()
+
+# Custom Update Loop
+def update():
+    # Check if any movement keys are held down to determine if we are "walking"
+    is_walking = held_keys['w'] or held_keys['a'] or held_keys['s'] or held_keys['d']
+    
+    # Constant slight weapon bobbing if moving
+    # Using 'is_walking' variable we just created
+    gun.y = -0.35 + (sin(time.time() * 10) * 0.01 if is_walking else 0)
+    
+    # Chunk loading logic
+    player_chunk_x = int(player.x // chunk_size)
+    player_chunk_z = int(player.z // chunk_size)
+    
+    # Load chunks in a 3x3 area around the player
+    for dx in range(-1, 2):
+        for dz in range(-1, 2):
+            cx = player_chunk_x + dx
+            cz = player_chunk_z + dz
+            load_chunk(cx, cz)
+    
+    # Unload chunks outside a 5x5 area
+    to_unload = []
+    for cx, cz in loaded_chunks:
+        if abs(cx - player_chunk_x) > 2 or abs(cz - player_chunk_z) > 2:
+            to_unload.append((cx, cz))
+    for cx, cz in to_unload:
+        unload_chunk(cx, cz)
+
+app.run()
